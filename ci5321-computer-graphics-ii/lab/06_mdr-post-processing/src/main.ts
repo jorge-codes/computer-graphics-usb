@@ -7,8 +7,6 @@ import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 
-import Stats from 'three/examples/jsm/libs/stats.module.js';
-
 // plain vertex shader
 import vertexShader from './shaders/vertex.glsl';
 // plain fragment shader that shows the loaded texture
@@ -56,9 +54,6 @@ class App {
   private material: THREE.ShaderMaterial;
   private mesh: THREE.Mesh;
   private startTime: number;
-  private resolution: THREE.Vector2;
-  private canvas: HTMLCanvasElement;
-  private stats: Stats;
 
   // Post-processing
   private composer: EffectComposer;
@@ -92,39 +87,10 @@ class App {
       console.warn('WebGL 2.0 is not available on this browser.');
     }
     this.renderer.setSize(window.innerWidth, window.innerHeight);
-    this.canvas = document.body.appendChild(this.renderer.domElement);
+    const canvas = document.body.appendChild(this.renderer.domElement);
 
-    this.setupStats();
+    const resolution = new THREE.Vector2(window.innerWidth, window.innerHeight);
 
-    this.resolution = new THREE.Vector2(window.innerWidth, window.innerHeight);
-
-    this.setupScene();
-
-    // Initialize post-processing
-    this.setupPostProcessing();
-
-    // Initialize
-    this.startTime = Date.now();
-    this.onWindowResize();
-
-    // Bind methods
-    this.onWindowResize = this.onWindowResize.bind(this);
-    this.animate = this.animate.bind(this);
-
-    // Add event listeners
-    window.addEventListener('resize', this.onWindowResize);
-
-    // Start the main loop
-    this.animate();
-  }
-
-  private setupStats(): void {
-    this.stats = new Stats();
-    this.stats.showPanel(0); // 0: fps, 1: ms, 2: memory
-    document.body.appendChild(this.stats.dom);
-  }
-
-  private setupScene(): void {
     this.geometry = new THREE.BoxGeometry(1, 1, 1, 32, 32, 32);
 
     const count = this.geometry.attributes.position.count;
@@ -146,7 +112,7 @@ class App {
         modelMatrix: { value: new THREE.Matrix4() },
         // custom uniforms
         uTime: { value: 0.0 },
-        uResolution: { value: this.resolution },
+        uResolution: { value: resolution },
         uTexture: { value: boxTexture },
       },
       glslVersion: THREE.GLSL3,
@@ -164,8 +130,25 @@ class App {
     const sphere = this.createNewSphere(0.5, new THREE.Vector3(1, 0, 0));
     this.scene.add(sphere);
 
-    const controls = new OrbitControls(this.camera, this.canvas);
+    const controls = new OrbitControls(this.camera, canvas);
     controls.enableDamping = true;
+
+    // Initialize post-processing
+    this.setupPostProcessing();
+
+    // Initialize
+    this.startTime = Date.now();
+    this.onWindowResize();
+
+    // Bind methods
+    this.onWindowResize = this.onWindowResize.bind(this);
+    this.animate = this.animate.bind(this);
+
+    // Add event listeners
+    window.addEventListener('resize', this.onWindowResize);
+
+    // Start the main loop
+    this.animate();
   }
 
   private createNewSphere(radius: number, position: THREE.Vector3): THREE.Mesh {
@@ -253,7 +236,6 @@ class App {
   }
 
   private animate(): void {
-    this.stats.begin();
     requestAnimationFrame(this.animate);
     const elapsedTime = (Date.now() - this.startTime) / 1000;
     this.material.uniforms.uTime.value = elapsedTime;
@@ -262,8 +244,6 @@ class App {
     // this.renderer.render(this.scene, this.camera);
     // Use the composer instead of directly rendering
     this.composer.render();
-
-    this.stats.end();
   }
 
   private onWindowResize(): void {
