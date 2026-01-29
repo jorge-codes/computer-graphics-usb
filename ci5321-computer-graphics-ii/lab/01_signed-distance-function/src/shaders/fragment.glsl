@@ -12,37 +12,55 @@ vec3 blue = vec3(0.0, 0.0, 1.0);
 
 void main() {
   // step 0 - show colors
+  // use different color params: white | red | green | blue
+  vec4 color = vec4(white, 1.0);
+  fragColor = color;
+  // ----------------------------------------
 
-  // step 1 - show swizzling
-  // swizzling:
-  vec2 uv = gl_FragCoord.xy / u_resolution.xy;
-  // shorthand for:
+  // step 1 - basic operations
+  // vec4 red4 = vec4(red, 1.0);
+  // vec4 green4 = vec4(green, 1.0);
+  // fragColor = red4 + green4; //yellow=red+green
+  // ----------------------------------------
+
+  // step 2 - show swizzling
+  // swizzling: https://wikis.khronos.org/opengl/Data_Type_(GLSL)#Swizzling
+  // more info: https://wikis.khronos.org/opengl/GLSL_Optimizations
+  // Normalize fragment coordinates to [0.0, 1.0] range
+  // vec2 uv = gl_FragCoord.xy / u_resolution.xy;
+  // fragColor = vec4(uv, 0.0, 1.0);
+  // it's shorthand for:
   // float u = gl_FragCoord.x / u_resolution.x;
   // float v = gl_FragCoord.y / u_resolution.y;
   // vec2 uv = vec2(u, v);
+  // fragColor = vec4(uv, 0.0, 1.0);
   // ----------------------------------------
 
-  // step 2
-  // uv = uv + 0.5;
-  // step 3
-  // uv = uv * u_resolution / 100.0;
-  // uv *= u_resolution / 100.0;
+  // step 3 - more operations
+  // vec2 uv = gl_FragCoord.xy / u_resolution.xy;
+  // float z = 1.0 - max(uv.x, uv.y);
+  // fragColor = vec4(uv.x, uv.y, z, 1.0);
+  // ----------------------------------------
 
-  // step 4
+  // step 4 - more operations
+  // vec2 uv = gl_FragCoord.xy / u_resolution.xy;
+  // float z = 1.0 - abs(uv.x - uv.y);
+  // fragColor = vec4(uv.x, uv.y, z, 1.0);
+  // ----------------------------------------
+
+  // step 5 - name here
+  // Normalization, as we already learned
+  // vec2 uv = gl_FragCoord.xy / u_resolution.xy;
+  // Shift origin from bottom-left corner to screen center
+  // Range changes from [0.0, 1.0] to [-0.5, 0.5]
   // uv = uv - 0.5;
-  // step 4.x
+  // Divide fragments to areas (test one by one)
   // uv *= u_resolution / 40.0;// a
   // uv *= u_resolution / 10.0;// b
-  // uv *= u_resolution / 1.0;// c
+  // uv *= u_resolution * 1.0;// c
+  // 
+  // vec3 color = vec3(uv, 0.0);
+  // fragColor = vec4(color, 1.0);
+  // ----------------------------------------
 
-  // vec3 color = white;
-  // vec3 color = green;
-  // vec3 color = blue + red;// it's additive
-
-  // along with step 1+
-  vec3 color = vec3(uv, 0.0);
-
-  //
-  // last operation
-  fragColor = vec4(color, 1.0);
 }
