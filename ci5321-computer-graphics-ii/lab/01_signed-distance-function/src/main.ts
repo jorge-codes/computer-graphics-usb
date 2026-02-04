@@ -1,6 +1,8 @@
-import * as THREE from 'three';
-import vertexShader from './shaders/vertex.glsl';
-import fragmentShader from './shaders/fragment.glsl';
+import * as THREE from "three";
+import vertexShader from "./shaders/vertex.glsl";
+import fragmentShader from "./shaders/fragment.glsl";
+// interchange line to test examples
+// import fragmentShader from "./shaders/flag.glsl";
 
 class App {
   private scene: THREE.Scene;
@@ -27,16 +29,16 @@ class App {
       this.camConfig.fov,
       this.camConfig.aspect,
       this.camConfig.near,
-      this.camConfig.far
+      this.camConfig.far,
     );
 
     // Setup renderer
     this.renderer = new THREE.WebGLRenderer({
       antialias: true,
-      powerPreference: 'high-performance',
+      powerPreference: "high-performance",
     });
     if (!this.renderer.capabilities.isWebGL2) {
-      console.warn('WebGL 2.0 is not available on this browser.');
+      console.warn("WebGL 2.0 is not available on this browser.");
     }
     this.renderer.setSize(window.innerWidth, window.innerHeight);
     document.body.appendChild(this.renderer.domElement);
@@ -82,7 +84,7 @@ class App {
     this.animate = this.animate.bind(this);
 
     // Add event listeners
-    window.addEventListener('resize', this.onWindowResize);
+    window.addEventListener("resize", this.onWindowResize);
 
     // Start the main loop
     this.animate();

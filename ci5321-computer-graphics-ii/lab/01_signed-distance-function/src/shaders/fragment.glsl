@@ -48,7 +48,7 @@ void main() {
   // fragColor = vec4(uv.x, uv.y, z, 1.0);
   // ----------------------------------------
 
-  // step 5 - name here
+  // step 5 - "zonification"
   // Normalization, as we already learned
   // vec2 uv = gl_FragCoord.xy / u_resolution.xy;
   // Shift origin from bottom-left corner to screen center
