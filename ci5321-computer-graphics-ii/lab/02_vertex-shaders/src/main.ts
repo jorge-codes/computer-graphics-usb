@@ -1,8 +1,8 @@
-import * as THREE from 'three';
-import { OrbitControls } from 'three/examples/jsm/Addons.js';
+import * as THREE from "three";
+import { OrbitControls } from "three/examples/jsm/Addons.js";
 
-import vertexShader from './shaders/vertex.glsl';
-import fragmentShader from './shaders/fragment.glsl';
+import vertexShader from "./shaders/vertex.glsl";
+import fragmentShader from "./shaders/fragment.glsl";
 
 class App {
   private scene: THREE.Scene;
@@ -31,16 +31,16 @@ class App {
       this.camConfig.fov,
       this.camConfig.aspect,
       this.camConfig.near,
-      this.camConfig.far
+      this.camConfig.far,
     );
 
     // Setup renderer
     this.renderer = new THREE.WebGLRenderer({
       antialias: true,
-      powerPreference: 'high-performance',
+      powerPreference: "high-performance",
     });
     if (!this.renderer.capabilities.isWebGL2) {
-      console.warn('WebGL 2.0 is not available on this browser.');
+      console.warn("WebGL 2.0 is not available on this browser.");
     }
     this.renderer.setSize(window.innerWidth, window.innerHeight);
     const canvas = document.body.appendChild(this.renderer.domElement);
@@ -50,19 +50,19 @@ class App {
     // Create shader material
     this.geometry = new THREE.PlaneGeometry(1, 1, 64, 64);
 
-    console.log('geometry attributes', this.geometry.attributes);
+    console.log("geometry attributes", this.geometry.attributes);
     const count = this.geometry.attributes.position.count;
     let randoms = new Float32Array(count);
     randoms = randoms.map(() => Math.random());
     const randomAttributes = new THREE.BufferAttribute(randoms, 1);
-    this.geometry.setAttribute('a_random', randomAttributes);
-    console.log('geometry attributes', this.geometry.attributes);
+    this.geometry.setAttribute("a_random", randomAttributes);
+    console.log("geometry attributes", this.geometry.attributes);
 
     const textureLoader = new THREE.TextureLoader();
-    const flagTexture = textureLoader.load('/img/flag-france.jpg', (texture) => {
+    const flagTexture = textureLoader.load("/img/flag-france.jpg", (texture) => {
       this.texture = texture;
     });
-    console.log('flagTexture:', flagTexture); // Check if texture is loaded
+    console.log("flagTexture:", flagTexture); // Check if texture is loaded
 
     this.material = new THREE.RawShaderMaterial({
       vertexShader,
@@ -106,7 +106,7 @@ class App {
     this.animate = this.animate.bind(this);
 
     // Add event listeners
-    window.addEventListener('resize', this.onWindowResize);
+    window.addEventListener("resize", this.onWindowResize);
 
     // Start the main loop
     this.animate();

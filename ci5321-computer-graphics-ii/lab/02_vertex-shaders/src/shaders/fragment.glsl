@@ -5,8 +5,9 @@ uniform vec2 u_resolution;
 uniform sampler2D u_texture;
 
 in float v_random;
-in float v_height;
+in float v_depth;
 in vec2 v_uv;
+in float v_yorch;
 
 out vec4 fragColor;
 
@@ -32,17 +33,17 @@ vec3 hsv2rgb(vec3 c) {
 }
 
 void main() {
-  vec2 uv = gl_FragCoord.xy / u_resolution.xy;
   // 0 - no changes
+  vec2 uv = gl_FragCoord.xy / u_resolution.xy;
   fragColor = vec4(uv.x, uv.y, 1.0, 1.0);
 
-  // 1 - receiving varying pt1
+  // // 1 - receiving varying pt1
   // fragColor = vec4(0.6, v_random, 1.0, 1.0);
 
   // 2 - receiving varying pt2
   // vec3 myBlue = vec3(0.15, 0.5, 1.0);
   // vec3 hsv = rgb2hsv(myBlue);
-  // hsv.y = 1.0 - v_height * 0.5;
+  // hsv.y = 1.0 - v_depth * 0.5;
   // vec3 rgb = hsv2rgb(hsv);
   // fragColor = vec4(rgb, 1.0);
 
