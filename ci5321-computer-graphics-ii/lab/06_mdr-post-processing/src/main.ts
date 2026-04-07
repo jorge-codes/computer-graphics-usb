@@ -166,12 +166,23 @@ class App {
   }
 
   private setupKeyboard(): void {
+    const hueStepDeg = 10;
+    const wrapHue = (deg: number) => ((deg % 360) + 360) % 360;
+
     this.keyHandlers = {
       s: () => {
         this.toggleEffect('grayscale', !this.getEffect('grayscale').enabled);
       },
       h: () => {
-        console.log('Shortcut: h');
+        this.toggleEffect('hue', !this.getEffect('hue').enabled);
+      },
+      ArrowLeft: () => {
+        this.setHue(wrapHue(this.getHue() - hueStepDeg));
+        this.updateEffectParam('hue', 'uHue', this.getHue());
+      },
+      ArrowRight: () => {
+        this.setHue(wrapHue(this.getHue() + hueStepDeg));
+        this.updateEffectParam('hue', 'uHue', this.getHue());
       },
     };
     window.addEventListener('keydown', this.onKeyDown);
@@ -190,7 +201,7 @@ class App {
   private createNewSphere(radius: number, position: THREE.Vector3): THREE.Mesh {
     const geometry = new THREE.SphereGeometry(radius, 32, 32);
     const material = new THREE.MeshPhongMaterial({ color: 0xffff00 });
-    // const material = new THREE.MeshBasicMaterial({ color: 0xffff00 });
+
     const sphere = new THREE.Mesh(geometry, material);
     sphere.position.copy(position);
     return sphere;
@@ -210,6 +221,7 @@ class App {
 
     // Add grayscale effect
     this.addEffect('grayscale', grayscaleShader);
+    this.addEffect('hue', hueShader);
   }
 
   private createGLSL3ShaderPass(shaderDefinition: ShaderDefinition): ShaderPass {
@@ -227,10 +239,10 @@ class App {
     return pass;
   }
 
+  // public functions for working with lil-gui or any other UI library, or just for better code organization
   public getHue(): number {
     return this.localHue;
   }
-
   public setHue(value: number): void {
     this.localHue = value;
     const effect = this.effects.get('hue');
@@ -238,6 +250,7 @@ class App {
       this.updateEffectParam('hue', 'uHue', value);
     }
   }
+  // **************
 
   public addEffect(
     name: string,
