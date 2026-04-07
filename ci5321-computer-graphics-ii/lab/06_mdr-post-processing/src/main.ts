@@ -15,6 +15,7 @@ import fragmentShader from './shaders/texture.glsl';
 // Post-processing shaders
 import ppVertexShader from './shaders/pp_vertex.glsl';
 import ppFragmentGrayScale from './shaders/pp_frag_grayscale.glsl';
+import ppFragmentHue from './shaders/pp_frag_hue.glsl';
 
 // Define shader definition interface
 interface ShaderDefinition {
@@ -46,6 +47,15 @@ const grayscaleShader: ShaderDefinition = {
   fragmentShader: ppFragmentGrayScale,
 };
 
+const hueShader: ShaderDefinition = {
+  uniforms: {
+    tDiffuse: { value: null },
+    uHue: { value: 0.0 },
+  },
+  vertexShader: ppVertexShader,
+  fragmentShader: ppFragmentHue,
+};
+
 class App {
   private scene: THREE.Scene;
   private camera: THREE.PerspectiveCamera;
@@ -58,6 +68,9 @@ class App {
   // Post-processing
   private composer: EffectComposer;
   private effects: Map<string, Effect>;
+  private localHue: number = 0;
+
+  private keyHandlers!: Record<string, () => void>;
 
   private camConfig = {
     fov: 75,
@@ -146,10 +159,33 @@ class App {
 
     // Add event listeners
     window.addEventListener('resize', this.onWindowResize);
+    this.setupKeyboard();
 
     // Start the main loop
     this.animate();
   }
+
+  private setupKeyboard(): void {
+    this.keyHandlers = {
+      s: () => {
+        this.toggleEffect('grayscale', !this.getEffect('grayscale').enabled);
+      },
+      h: () => {
+        console.log('Shortcut: h');
+      },
+    };
+    window.addEventListener('keydown', this.onKeyDown);
+  }
+
+  private onKeyDown = (event: KeyboardEvent): void => {
+    if (event.ctrlKey || event.metaKey) return;
+    const k = event.key.length === 1 ? event.key.toLowerCase() : event.key;
+    const fn = this.keyHandlers[k];
+    if (fn) {
+      event.preventDefault();
+      fn();
+    }
+  };
 
   private createNewSphere(radius: number, position: THREE.Vector3): THREE.Mesh {
     const geometry = new THREE.SphereGeometry(radius, 32, 32);
@@ -191,9 +227,19 @@ class App {
     return pass;
   }
 
+  public getHue(): number {
+    return this.localHue;
+  }
+
+  public setHue(value: number): void {
+    this.localHue = value;
+    const effect = this.effects.get('hue');
+    if (effect) {
+      this.updateEffectParam('hue', 'uHue', value);
+    }
+  }
+
   public addEffect(name: string, shaderDefinition: ShaderDefinition, params?: Record<string, any>): void {
-    // GLSL 1.0 regular stuff
-    // const pass = new ShaderPass(shaderDefinition);
     // GLSL 3.0 custom material
     const pass = this.createGLSL3ShaderPass(shaderDefinition);
 
@@ -215,6 +261,10 @@ class App {
       enabled: true,
       params,
     });
+  }
+
+  public getEffect(name: string): Effect {
+    return this.effects.get(name)!;
   }
 
   public toggleEffect(name: string, enabled: boolean): void {
