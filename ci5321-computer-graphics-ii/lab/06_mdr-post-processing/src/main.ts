@@ -239,9 +239,15 @@ class App {
     }
   }
 
-  public addEffect(name: string, shaderDefinition: ShaderDefinition, params?: Record<string, any>): void {
+  public addEffect(
+    name: string,
+    shaderDefinition: ShaderDefinition,
+    params?: Record<string, any>,
+    enabled: boolean = false
+  ): void {
     // GLSL 3.0 custom material
     const pass = this.createGLSL3ShaderPass(shaderDefinition);
+    pass.enabled = enabled;
 
     if (params) {
       Object.entries(params).forEach(([key, value]) => {
@@ -258,7 +264,7 @@ class App {
     this.effects.set(name, {
       pass,
       name,
-      enabled: true,
+      enabled,
       params,
     });
   }
@@ -311,5 +317,6 @@ class App {
 const myApp = new App();
 
 // Example of how to control the effect after initialization:
-// myApp.updateEffectParam('grayscale', 'intensity', 0.5); // 50% grayscale
+// myApp.updateEffectParam('grayscale', 'uIntensity', 0.5); // 50% grayscale
+// myApp.addEffect('grayscale', grayscaleShader, undefined, true); // start enabled
 // myApp.toggleEffect('grayscale', false); // Turn off grayscale
