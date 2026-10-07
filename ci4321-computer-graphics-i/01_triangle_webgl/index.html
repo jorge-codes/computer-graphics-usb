@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>RGB Triangle: FF vs. WebGL2</title>
+  </head>
+  <body>
+    <header>
+      <h1>RGB Triangle</h1>
+      <div class="toggle" role="group" aria-label="Implementation">
+        <button id="btn-ff" type="button">FF (main)</button>
+        <button id="btn-vanilla" type="button">Vanilla WebGL2 (second)</button>
+      </div>
+      <span class="hint">Press <kbd>T</kbd> to toggle</span>
+    </header>
+    <main>
+      <div id="stage"></div>
+      <section>
+        <h2 id="file-name"></h2>
+        <pre id="source"></pre>
+      </section>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
