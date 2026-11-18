@@ -366,18 +366,55 @@ ff.disable(FOG);
 
 A sprite font is a texture atlas (also called a spritesheet) that holds one image per character (a glyph). To draw text, draw one textured quad per character. Each quad samples only the sub-rectangle of its glyph. FF supports this with `ATTRIB.UV` and `setTextureMatrix`. FF has no text API, so your code builds the quads.
 
-This example draws HUD (heads-up display) text in pixel coordinates over a 3D scene. It assumes a monospaced atlas: a grid of `COLS` x `ROWS` cells. Each cell is `CELL_W` x `CELL_H` pixels. The cell at index `code - FIRST_CODE` holds the character `code`, in row-major order from the top-left cell.
+You do not change FF to draw text or a UI. FF draws textured quads with any projection. Everything else is your code:
+
+| FF does | Your code does |
+|---|---|
+| Transforms positions with the projection, view and model matrices | Creates the orthographic (2D) projection with `mat4.ortho` |
+| Applies the texture matrix to the UVs | Computes the UV rectangle of each glyph from the atlas layout |
+| Samples the texture on unit 0 and multiplies it by the current color (modulate) | Prepares the atlas: white glyphs on a transparent background |
+| Outputs texture alpha times color alpha | Enables blending and sets the blend function with WebGL |
+| Switches lighting, fog and texturing on and off | Builds one quad (two triangles) per character, with its buffers and VAO |
+| Draws with `drawArrays` and `drawElements` | Sets the depth test and face culling, and restores the 3D state after the text pass |
+
+This example draws HUD (heads-up display) text in pixel coordinates over a 3D scene. It assumes a monospaced atlas: a grid of `COLS` columns of cells. Each glyph is `CELL_W` x `CELL_H` pixels. The cell at index `code - FIRST_CODE` holds the character `code`, in row-major order from the top-left cell.
+
+Some atlases draw a grid line around each cell. Then the cells repeat every `PITCH_X` x `PITCH_Y` pixels, and the first glyph starts `BORDER` pixels from the top-left corner. For an atlas without lines, set `PITCH_X = CELL_W`, `PITCH_Y = CELL_H` and `BORDER = 0`. Open the atlas in an image editor and measure these values before you write the UV code.
 
 ```ts
-const ATLAS_W = 256;    // atlas image width in pixels
-const ATLAS_H = 256;    // atlas image height in pixels
-const CELL_W = 16;      // glyph cell width in pixels
-const CELL_H = 16;      // glyph cell height in pixels
-const COLS = ATLAS_W / CELL_W;
+const ATLAS_W = 145;    // atlas image width in pixels
+const ATLAS_H = 1412;   // atlas image height in pixels
+const CELL_W = 8;       // glyph width in pixels
+const CELL_H = 16;      // glyph height in pixels
+const PITCH_X = 9;      // distance from one cell to the next in x: glyph + 1 pixel grid line
+const PITCH_Y = 17;     // distance from one cell to the next in y
+const BORDER = 1;       // pixels before the first glyph: the outer grid line
+const COLS = 16;        // cells per row
 const FIRST_CODE = 32;  // the top-left cell holds ' ' (ASCII 32)
 ```
 
-1. Load the atlas on unit 0. Use `NEAREST` filtering and `CLAMP_TO_EDGE` wrapping.
+These values match the BoldPixels atlas in the `05_texture_webgl` example.
+
+1. Prepare the atlas image. Do this once, in an image editor or with a script, not in the render loop. The glyphs must be white, and the rest of the image must be transparent (alpha 0).
+
+FF computes `texel x color`. The table shows why this format is necessary:
+
+| Atlas format | Result of `texel x color` | Usable |
+|---|---|---|
+| Black glyphs on white, opaque | Glyphs stay black for every color. The white background shows as a box around each glyph. | No |
+| Black glyphs on a transparent background | Glyphs stay black for every color. Black text is not visible on a dark scene. | Only for black text |
+| White glyphs on a transparent background | Glyphs take the color from `setColor`. The background does not show when blending is on. | Yes |
+
+To convert a black-on-white atlas:
+
+- Make every glyph pixel opaque white: `(255, 255, 255, 255)`.
+- Make every other pixel transparent: alpha `0`. This includes the background and any grid lines.
+- Keep the image size. Then the grid values above do not change.
+- Save the result as a PNG with an alpha channel. Keep the original file.
+
+With a white atlas, `ff.setColor([1, 1, 1, 1])` shows the glyphs as they are in the image. Any other color tints them.
+
+2. Load the atlas on unit 0. Use `NEAREST` filtering and `CLAMP_TO_EDGE` wrapping.
 
 ```ts
 gl.activeTexture(gl.TEXTURE0 + TEXTURE_UNIT);
@@ -393,7 +430,7 @@ gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
 `LINEAR` filtering and mipmaps blend texels from the neighbor cells into the glyph edges. The result is thin lines at the quad borders. If you need `LINEAR`, leave empty pixels (padding) between the cells in the atlas, or move each UV edge 0.5 texel toward the glyph center.
 
-2. Compute the UV rectangle of a glyph. The image origin is the top-left corner, but `t = 0` is the bottom of the texture. The `t` values depend on `UNPACK_FLIP_Y_WEBGL`.
+3. Compute the UV rectangle of a glyph. First find the glyph in pixels, then divide by the atlas size to get texture coordinates in `[0, 1]`. The image origin is the top-left corner, but `t = 0` is the bottom of the texture. The `t` values depend on `UNPACK_FLIP_Y_WEBGL`.
 
 ```ts
 /** Returns [s0, t0, s1, t1]: (s0, t0) is the bottom-left corner, (s1, t1) is the top-right corner. */
@@ -401,30 +438,35 @@ function glyphUV(code: number): [number, number, number, number] {
   const index = code - FIRST_CODE;
   const col = index % COLS;
   const row = Math.floor(index / COLS); // row 0 is the top row of the image
-  const s0 = (col * CELL_W) / ATLAS_W;
-  const s1 = ((col + 1) * CELL_W) / ATLAS_W;
+  const x0 = BORDER + col * PITCH_X; // left pixel of the glyph
+  const y0 = BORDER + row * PITCH_Y; // top pixel of the glyph
+  const s0 = x0 / ATLAS_W;
+  const s1 = (x0 + CELL_W) / ATLAS_W;
   // UNPACK_FLIP_Y_WEBGL = true: the top image row is at t = 1.
-  const t1 = 1 - (row * CELL_H) / ATLAS_H;
-  const t0 = 1 - ((row + 1) * CELL_H) / ATLAS_H;
-  // UNPACK_FLIP_Y_WEBGL = false: use t0 = ((row + 1) * CELL_H) / ATLAS_H and t1 = (row * CELL_H) / ATLAS_H.
+  const t1 = 1 - y0 / ATLAS_H;
+  const t0 = 1 - (y0 + CELL_H) / ATLAS_H;
+  // UNPACK_FLIP_Y_WEBGL = false: use t0 = (y0 + CELL_H) / ATLAS_H and t1 = y0 / ATLAS_H.
   return [s0, t0, s1, t1];
 }
 ```
 
 `UNPACK_FLIP_Y_WEBGL` is global WebGL state. It stays on for all uploads after you set it. Use the same value for all your textures, or set it before each upload.
 
-3. Build the text mesh. Each character adds 4 vertices and 6 indices (two triangles). WebGL2 has no `QUADS` primitive.
+4. Build the text mesh. Each character adds 4 vertices and 6 indices (two triangles). WebGL2 has no `QUADS` primitive.
 
 ```ts
+const LETTER_SPACING = 1; // atlas pixels between glyphs. Use 0 if the glyphs already include a gap.
+
 /** Interleaved x, y, s, t per vertex. (x, y) is the top-left corner of the text, in pixels, y down. */
 function buildText(text: string, x: number, y: number, scale = 1) {
   const vertices = new Float32Array(text.length * 4 * 4);
   const indices = new Uint16Array(text.length * 6);
   const w = CELL_W * scale;
   const h = CELL_H * scale;
+  const advance = (CELL_W + LETTER_SPACING) * scale; // distance from one glyph to the next
   for (let i = 0; i < text.length; i++) {
     const [s0, t0, s1, t1] = glyphUV(text.charCodeAt(i));
-    const left = x + i * w;
+    const left = x + i * advance;
     const right = left + w;
     const top = y;
     const bottom = y + h;
@@ -441,9 +483,9 @@ function buildText(text: string, x: number, y: number, scale = 1) {
 }
 ```
 
-A `Uint16Array` index buffer holds up to 16,383 characters (65,535 / 4 vertices). For a variable-width font, store the cell rectangle and the advance width of each glyph in a table. Then add the advance width to `left`, not `i * w`.
+A `Uint16Array` index buffer holds up to 16,383 characters (65,535 / 4 vertices). Use an integer `scale` for pixel fonts, and round `x` and `y` to whole pixels. Then each atlas pixel covers exactly `scale` x `scale` screen pixels, and the glyphs stay sharp. For a variable-width font, store the pixel rectangle and the advance width of each glyph in a table. Then add the advance width of the previous glyph to `left`, not `i * advance`.
 
-4. Create the buffers and the VAO. Use `DYNAMIC_DRAW` if the text changes often. The position has 2 floats. WebGL sets the missing `z` to `0`.
+5. Create the buffers and the VAO. Use `DYNAMIC_DRAW` if the text changes often. The position has 2 floats. WebGL sets the missing `z` to `0`.
 
 ```ts
 const TEXT_STRIDE_BYTES = 4 * 4;
@@ -476,7 +518,7 @@ function setText(text: string, x: number, y: number, scale = 1): number {
 
 The VAO does not enable `ATTRIB.COLOR`. All glyphs use the current color from `setColor`. To give each character its own color, add `r g b a` to each vertex and enable `ATTRIB.COLOR`.
 
-5. Draw the 3D scene first. Then draw the text pass. Set the pipeline state for 2D, draw, then restore the state for the next frame.
+6. Draw the 3D scene first. Then draw the text pass. Set the pipeline state for 2D, draw, then restore the state for the next frame.
 
 ```ts
 import { mat3, mat4 } from 'gl-matrix';
@@ -500,7 +542,7 @@ ff.setProjectionMatrix(hudProjection);
 ff.setViewMatrix(IDENTITY4);
 ff.setModelMatrix(IDENTITY4);
 ff.setTextureMatrix(IDENTITY3); // the UVs already select the glyph
-ff.setColor([1, 1, 0.4, 1]);  // text color. A white glyph shows this color.
+ff.setColor([1, 1, 1, 1]);    // white: the glyphs show as they are in the atlas. Any other color tints them.
 
 gl.activeTexture(gl.TEXTURE0 + TEXTURE_UNIT);
 gl.bindTexture(gl.TEXTURE_2D, fontTexture);
@@ -515,9 +557,26 @@ ff.setViewMatrix(view);
 // Also enable LIGHTING and FOG again if your 3D scene uses them.
 ```
 
+If the text pass does not know the scene state, save it with `getState()` before the pass and restore it after the pass:
+
+```ts
+const saved = ff.getState(); // a copy, not a live view
+// ... text pass ...
+if (saved.capabilities[LIGHTING]) ff.enable(LIGHTING);
+if (saved.capabilities[FOG]) ff.enable(FOG);
+if (!saved.capabilities[TEXTURE_2D]) ff.disable(TEXTURE_2D);
+ff.setProjectionMatrix(saved.matrices.projection);
+ff.setViewMatrix(saved.matrices.view);
+ff.setColor([1, 1, 1, 1]); // FF's initial current color
+```
+
+`getState()` allocates new arrays on each call. One call per frame is acceptable. Do not call it once per character.
+
 `buildText` lists the vertices of each quad counter-clockwise as seen on the screen. The projection maps the larger pixel `y` to the bottom of the screen, so the quads stay counter-clockwise. Face culling does not remove them. If you list the vertices in a different order, check the winding, or disable `CULL_FACE` for the text pass.
 
-Draw a white glyph on a transparent background in the atlas. The modulate step gives `texel x color`, so `setColor` sets the text color. Texel alpha times color alpha gives the output alpha. With blending on, the transparent part of each cell does not show.
+The atlas has white glyphs on a transparent background (step 1). The modulate step gives `texel x color`, so `setColor` sets the text color. Texel alpha times color alpha gives the output alpha. With blending on, the transparent part of each cell does not show.
+
+To draw a UI panel behind the text, draw a quad with `ff.disable(TEXTURE_2D)` and a color with alpha below 1, for example `ff.setColor([0, 0, 0, 0.6])`. Draw the panel before the text, then enable `TEXTURE_2D` again.
 
 `setColor` writes the generic value of `ATTRIB.COLOR` right away. It has no effect while a VAO enables `ATTRIB.COLOR`. Lit draws ignore it unless `COLOR_MATERIAL` is on. See [setColor](#setcolor).
 
@@ -525,7 +584,7 @@ Draw a white glyph on a transparent background in the atlas. The modulate step g
 
 You can select the glyph with the texture matrix instead of per-vertex UVs. Use one unit quad with UVs from `(0, 0)` to `(1, 1)`. Before each character, scale the UVs to the cell size, then move them to the cell corner.
 
-The quad covers `x` from `0` to `1` and `y` from `0` (top) to `1` (bottom), for the y-down projection in step 5. Its top edge has `t = 1`, so the glyph is not upside down. Create its VAO the same way as in step 4, with `STATIC_DRAW`.
+The quad covers `x` from `0` to `1` and `y` from `0` (top) to `1` (bottom), for the y-down projection in step 6. Its top edge has `t = 1`, so the glyph is not upside down. Create its VAO the same way as in step 5, with `STATIC_DRAW`.
 
 ```ts
 // x, y, s, t per vertex. Counter-clockwise as seen on the screen.
@@ -538,7 +597,7 @@ const GLYPH_QUAD_VERTICES = new Float32Array([
 const GLYPH_QUAD_INDICES = new Uint16Array([0, 1, 2, 0, 2, 3]);
 ```
 
-Set the same text-pass state as in step 5. Then select each glyph and draw the quad.
+Set the same text-pass state as in step 6. Then select each glyph and draw the quad.
 
 ```ts
 const textureMatrix = mat3.create();
@@ -555,7 +614,7 @@ function selectGlyph(code: number): void {
 gl.bindVertexArray(glyphQuadVao);
 for (let i = 0; i < text.length; i++) {
   selectGlyph(text.charCodeAt(i));
-  mat4.fromTranslation(model, [x + i * CELL_W, y, 0]);
+  mat4.fromTranslation(model, [x + i * (CELL_W + LETTER_SPACING), y, 0]);
   mat4.scale(model, model, [CELL_W, CELL_H, 1]);
   ff.setModelMatrix(model);
   ff.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
@@ -563,7 +622,7 @@ for (let i = 0; i < text.length; i++) {
 ff.setTextureMatrix(mat3.create()); // the texture matrix persists. Reset it before other textured draws.
 ```
 
-This method needs no dynamic buffers, but it makes one draw call per character. Use it for short labels. Use the batched mesh from steps 3 and 4 for long text or text that changes each frame.
+This method needs no dynamic buffers, but it makes one draw call per character. Use it for short labels. Use the batched mesh from steps 4 and 5 for long text or text that changes each frame.
 
 #### Text in the 3D scene
 
@@ -578,9 +637,14 @@ For a label in the world, keep the perspective projection and the depth test. Ma
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| Glyphs are upside down, or show the wrong row | The `t` math does not match `UNPACK_FLIP_Y_WEBGL` | Use the `t` formula for your flip setting (step 2) |
+| Glyphs are upside down, or show the wrong row | The `t` math does not match `UNPACK_FLIP_Y_WEBGL` | Use the `t` formula for your flip setting (step 3) |
 | Thin lines at the glyph edges | `LINEAR` filtering or mipmaps sample the neighbor cells | Use `NEAREST`, add padding, or move the UVs 0.5 texel inward |
 | Black boxes behind the glyphs | Blending is off | `gl.enable(gl.BLEND)` with `SRC_ALPHA, ONE_MINUS_SRC_ALPHA` |
+| White or gray boxes, or grid lines, around the glyphs | The atlas background is opaque | Make the background and grid lines transparent (step 1) |
+| Text is always black, whatever `setColor` gets | The atlas has black glyphs | Make the glyphs white (step 1) |
+| Glyphs are cut, or show part of the next glyph | `CELL_W`, `CELL_H`, `PITCH_X`, `PITCH_Y` or `BORDER` does not match the atlas | Measure the atlas in an image editor and correct the values |
+| Glyphs touch each other | Some glyphs fill the full cell width | Set `LETTER_SPACING` to 1 or more |
+| Glyph edges look blurred or uneven | The scale is not an integer, or the text position is not on whole pixels | Use an integer `scale` and round `x` and `y` |
 | Text is not visible | The depth test hides the quads, or face culling removes clockwise quads | Disable `DEPTH_TEST` for the HUD pass. Check the vertex order, or disable `CULL_FACE` |
 | Text is dark or changes with the light | `LIGHTING` is on | `ff.disable(LIGHTING)` for the HUD pass |
 | Text takes the fog color | `FOG` is on | `ff.disable(FOG)` for the HUD pass |
