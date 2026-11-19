@@ -2,6 +2,7 @@
 import './style.css';
 import { mat3, mat4 } from 'gl-matrix';
 import { ATTRIB, createFixedFunction, LIGHTING, TEXTURE_2D, TEXTURE_UNIT } from './vendor/ff/ff';
+import type { FixedFunction } from './vendor/ff/ff';
 import woodUrl from './textures/Wood_07-512x512.png';
 import camoUrl from './textures/camo.png';
 import bushUrl from './textures/bush.png';
@@ -22,8 +23,6 @@ import {
   STRIDE_BYTES,
   UV_OFFSET_BYTES,
 } from './constants';
-
-type FF = ReturnType<typeof createFixedFunction>;
 
 const ROTATION_SPEED = 0.8;
 const MAX_DT = 0.1; // seconds
@@ -116,7 +115,7 @@ function setupState(gl: WebGL2RenderingContext, canvas: HTMLCanvasElement): void
 }
 
 // Step 7. Scene: lighting, one directional light, texturing, camera. The material is set before each draw.
-function setupScene(ff: FF): void {
+function setupScene(ff: FixedFunction): void {
   ff.enable(LIGHTING);
   ff.setGlobalAmbient([0.2, 0.2, 0.2, 1]); // the FF default, set explicitly to make it visible
 
@@ -181,7 +180,7 @@ const normalMatrix = mat3.create();
 
 function render(
   gl: WebGL2RenderingContext,
-  ff: FF,
+  ff: FixedFunction,
   cubeVao: WebGLVertexArrayObject,
   quadVao: WebGLVertexArrayObject,
   woodTexture: WebGLTexture,
@@ -214,7 +213,7 @@ function render(
   gl.bindTexture(gl.TEXTURE_2D, camoTexture);
   // A yellow material (1, 1, 0) has no blue, so the result has no blue: white texels turn yellow,
   // gray texels turn dark yellow (olive).
-  // No emissive: lighting scales the texture to about 0.53 here, so it is darker than the bush.
+  // No emissive: lighting scales the texture, so the camo is dimmer than the bush. The README derives the lit value.
   ff.setMaterial({ ambient: color, diffuse: color, emissive: [0, 0, 0, 1] });
   mat4.fromTranslation(model, [QUAD_X, 0, 0]);
   ff.setModelMatrix(model);

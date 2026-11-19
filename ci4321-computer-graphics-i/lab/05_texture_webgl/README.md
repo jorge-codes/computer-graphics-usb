@@ -40,6 +40,8 @@ Each frame runs three steps in this order:
 
 `dt` is the time since the last frame, in seconds. The value is clamped to 0.1 s. A hidden tab does not make the cube jump when the tab becomes visible again. The rotation speed is in radians per second. The cube turns at the same speed on a 60 Hz display and on a 120 Hz display.
 
+Research: key-state polling with edge detection. Store which keys are down and compare with the last frame: pressed = down now && !down last frame. When does it fit better than events?
+
 ## Texture
 
 - The cube uses `src/textures/Wood_07-512x512.png` (512 x 512 pixels). The camo quad uses `src/textures/camo.png` (256 x 256 pixels). The bush quad uses `src/textures/bush.png` (53 x 42 pixels, with transparency).
@@ -52,6 +54,7 @@ Each frame runs three steps in this order:
 - `createTexture` takes a `filter` argument. It sets both the minification and the magnification filter. Wood and camo use `LINEAR`. The bush uses `NEAREST`.
 - `LINEAR` blends neighbor texels. `NEAREST` picks one texel, so pixel-art edges stay sharp. `NEAREST` also does not blend the color of transparent texels into the edge, which can cause dark fringes.
 - The default minification filter needs mipmaps, and the example makes none. Without an explicit filter, the texture samples as black.
+- The wrap mode is `CLAMP_TO_EDGE`. A UV outside [0, 1] samples the nearest edge texel. Exercise: change the quad UVs in `src/constants.ts` to span 0 to 2 and set the wrap mode to `gl.REPEAT`.
 - Texturing multiplies the lit material color by the texel, one channel at a time. `render` sets the material before each draw.
 - `setMaterial` changes only the fields you pass. The material persists across draws and frames. The bush sets `emissive` to white, so the cube and camo draws reset `emissive` to (0, 0, 0). Without the reset, the bush emissive from the previous frame would light them.
 - The cube material is white (1, 1, 1). White does not tint the texture, but lighting still shades it.
@@ -67,6 +70,7 @@ Each frame runs three steps in this order:
 - The bush quad is scaled by `BUSH_ASPECT` (image width / height) in X, so the image is not squashed.
 - `render` draws the bush last. Blending mixes the new color with the color already in the framebuffer, so the opaque objects must be there first.
 - Depth caveat: transparent texels still write depth. An object drawn after the bush, behind it, is hidden even where the bush is transparent.
+- Exercise: draw a second bush behind the first one.
 - Research: depth mask, back-to-front sorting, and `discard` in a fragment shader (FF has no alpha test).
 
 ## Other commands
